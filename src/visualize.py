@@ -31,7 +31,7 @@ def render_game(env, delay=0.1):
 
 
 def _load_agent(model_path, grid_size):
-    agent = PPOAgent(state_dim=grid_size * grid_size, action_dim=4)
+    agent = PPOAgent(state_dim=11, action_dim=4)
     try:
         agent.load_model(model_path)
     except FileNotFoundError as exc:

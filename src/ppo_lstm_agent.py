@@ -7,11 +7,15 @@ from torch.distributions import Categorical
 class PPOPolicyNetwork(nn.Module):
     def __init__(self, input_dim, action_dim, hidden_dim=128):
         super().__init__()
-        self.lstm = nn.LSTM(input_dim, hidden_dim, batch_first=True)
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.lstm = nn.LSTM(hidden_dim, hidden_dim, batch_first=True)
         self.actor = nn.Linear(hidden_dim, action_dim)
         self.critic = nn.Linear(hidden_dim, 1)
 
     def forward(self, x, hidden_state=None):
+        x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc2(x))
         output, hidden_state = self.lstm(x, hidden_state)
         logits = self.actor(output)
         value = self.critic(output)
@@ -41,6 +45,7 @@ class PPOAgent:
         gamma=0.99,
         eps_clip=0.2,
         k_epochs=4,
+        entropy_coef=0.05,
     ):
         self.policy = PPOPolicyNetwork(state_dim, action_dim, hidden_dim)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
@@ -48,6 +53,7 @@ class PPOAgent:
         self.gamma = gamma
         self.eps_clip = eps_clip
         self.k_epochs = k_epochs
+        self.entropy_coef = entropy_coef
 
     def select_action(self, state, hidden_state=None):
         state_tensor = torch.from_numpy(state).float().unsqueeze(0).unsqueeze(0)
@@ -58,9 +64,9 @@ class PPOAgent:
         action_log_prob = dist.log_prob(action)
 
         self.memory.states.append(state_tensor)
-        self.memory.actions.append(action)
-        self.memory.log_probs.append(action_log_prob)
-        self.memory.values.append(value)
+        self.memory.actions.append(action.item())
+        self.memory.log_probs.append(action_log_prob.detach())
+        self.memory.values.append(value.detach())
 
         return action.item(), hidden_state
 
@@ -73,16 +79,20 @@ class PPOAgent:
             discounted_return = reward + (self.gamma * discounted_return)
             returns.insert(0, discounted_return)
 
-        returns = torch.tensor(returns)
+        returns = torch.tensor(returns, dtype=torch.float32)
         log_probs = torch.stack(self.memory.log_probs)
-        values = torch.cat(self.memory.values).squeeze(-1)
-        states = torch.cat(self.memory.states, dim=1).squeeze(0)
+        values = torch.cat(self.memory.values, dim=1).squeeze(0).squeeze(-1)
+        states = torch.cat(self.memory.states, dim=1)
         actions = torch.tensor(self.memory.actions)
 
-        advantages = returns - values.detach()
+        advantages = returns - values
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
         for _ in range(self.k_epochs):
-            logits, values, _ = self.policy(states)
+            logits, values_pred, _ = self.policy(states)
+            logits = logits.squeeze(0)
+            values_pred = values_pred.squeeze(0).squeeze(-1)
+
             probs = torch.softmax(logits, dim=-1)
             dist = Categorical(probs)
 
@@ -93,14 +103,15 @@ class PPOAgent:
             surrogate2 = torch.clamp(ratio, 1 - self.eps_clip, 1 + self.eps_clip) * advantages
             actor_loss = -torch.min(surrogate1, surrogate2).mean()
 
-            critic_loss = nn.MSELoss()(values.squeeze(-1), returns)
+            critic_loss = nn.MSELoss()(values_pred, returns)
 
             entropy = dist.entropy().mean()
 
-            loss = actor_loss + 0.5 * critic_loss - 0.01 * entropy
+            loss = actor_loss + 0.5 * critic_loss - self.entropy_coef * entropy
 
             self.optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.policy.parameters(), 0.5)
             self.optimizer.step()
 
         self.memory.clear()
