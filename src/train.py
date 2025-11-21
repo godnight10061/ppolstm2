@@ -1,4 +1,5 @@
 import time
+from pathlib import Path
 
 try:
     from src.snake_env import SnakeEnv
@@ -8,7 +9,12 @@ except ModuleNotFoundError:
     from ppo_lstm_agent import PPOAgent
 
 
-def train_agent(episodes=None, patience_seconds=300, time_provider=None):
+def train_agent(
+    episodes=None,
+    patience_seconds=300,
+    time_provider=None,
+    best_model_path="best_model.pth",
+):
     env = SnakeEnv(grid_size=10)
     agent = PPOAgent(state_dim=100, action_dim=4)
 
@@ -18,6 +24,10 @@ def train_agent(episodes=None, patience_seconds=300, time_provider=None):
     best_score = float("-inf")
     last_improvement_time = time_provider()
     episode = 0
+
+    model_path = Path(best_model_path) if best_model_path else None
+    if model_path and model_path.parent != Path("."):
+        model_path.parent.mkdir(parents=True, exist_ok=True)
 
     while episodes is None or episode < episodes:
         state = env.reset()
@@ -42,6 +52,9 @@ def train_agent(episodes=None, patience_seconds=300, time_provider=None):
         if env.score > best_score:
             best_score = env.score
             last_improvement_time = current_time
+            if best_model_path:
+                agent.save_model(best_model_path)
+                print(f"New best score {best_score}, model saved to {best_model_path}")
 
         if current_time - last_improvement_time >= patience_seconds:
             print(f"Training stopped: no score improvement for {patience_seconds}s")

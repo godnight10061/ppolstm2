@@ -29,3 +29,4 @@ env/
 .DS_Store
 models/
 runs/
+best_model.pth
