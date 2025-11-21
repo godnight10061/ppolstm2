@@ -1,0 +1,110 @@
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.distributions import Categorical
+
+
+class PPOPolicyNetwork(nn.Module):
+    def __init__(self, input_dim, action_dim, hidden_dim=128):
+        super().__init__()
+        self.lstm = nn.LSTM(input_dim, hidden_dim, batch_first=True)
+        self.actor = nn.Linear(hidden_dim, action_dim)
+        self.critic = nn.Linear(hidden_dim, 1)
+
+    def forward(self, x, hidden_state=None):
+        output, hidden_state = self.lstm(x, hidden_state)
+        logits = self.actor(output)
+        value = self.critic(output)
+        return logits, value, hidden_state
+
+
+class PPOMemory:
+    def __init__(self):
+        self.clear()
+
+    def clear(self):
+        self.log_probs = []
+        self.values = []
+        self.states = []
+        self.actions = []
+        self.rewards = []
+        self.dones = []
+
+
+class PPOAgent:
+    def __init__(
+        self,
+        state_dim,
+        action_dim,
+        hidden_dim=128,
+        lr=3e-4,
+        gamma=0.99,
+        eps_clip=0.2,
+        k_epochs=4,
+    ):
+        self.policy = PPOPolicyNetwork(state_dim, action_dim, hidden_dim)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
+        self.memory = PPOMemory()
+        self.gamma = gamma
+        self.eps_clip = eps_clip
+        self.k_epochs = k_epochs
+
+    def select_action(self, state, hidden_state=None):
+        state_tensor = torch.from_numpy(state).float().unsqueeze(0).unsqueeze(0)
+        logits, value, hidden_state = self.policy(state_tensor, hidden_state)
+        probs = torch.softmax(logits.squeeze(0), dim=-1)
+        dist = Categorical(probs)
+        action = dist.sample()
+        action_log_prob = dist.log_prob(action)
+
+        self.memory.states.append(state_tensor)
+        self.memory.actions.append(action)
+        self.memory.log_probs.append(action_log_prob)
+        self.memory.values.append(value)
+
+        return action.item(), hidden_state
+
+    def update(self):
+        returns = []
+        discounted_return = 0
+        for reward, done in zip(reversed(self.memory.rewards), reversed(self.memory.dones)):
+            if done:
+                discounted_return = 0
+            discounted_return = reward + (self.gamma * discounted_return)
+            returns.insert(0, discounted_return)
+
+        returns = torch.tensor(returns)
+        log_probs = torch.stack(self.memory.log_probs)
+        values = torch.cat(self.memory.values).squeeze(-1)
+        states = torch.cat(self.memory.states, dim=1).squeeze(0)
+        actions = torch.tensor(self.memory.actions)
+
+        advantages = returns - values.detach()
+
+        for _ in range(self.k_epochs):
+            logits, values, _ = self.policy(states)
+            probs = torch.softmax(logits, dim=-1)
+            dist = Categorical(probs)
+
+            new_log_probs = dist.log_prob(actions)
+            ratio = torch.exp(new_log_probs - log_probs.detach())
+
+            surrogate1 = ratio * advantages
+            surrogate2 = torch.clamp(ratio, 1 - self.eps_clip, 1 + self.eps_clip) * advantages
+            actor_loss = -torch.min(surrogate1, surrogate2).mean()
+
+            critic_loss = nn.MSELoss()(values.squeeze(-1), returns)
+
+            entropy = dist.entropy().mean()
+
+            loss = actor_loss + 0.5 * critic_loss - 0.01 * entropy
+
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+        self.memory.clear()
+
+    def store_transition(self, reward, done):
+        self.memory.rewards.append(reward)
+        self.memory.dones.append(done)
