@@ -41,6 +41,9 @@ def test_train_agent_stops_when_patience_expires(monkeypatch):
             self.update_calls += 1
             fake_time.advance(120)
 
+        def save_model(self, path):
+            pass
+
     monkeypatch.setattr(train, "SnakeEnv", StubSnakeEnv)
     monkeypatch.setattr(train, "PPOAgent", StubAgent)
 
@@ -77,6 +80,9 @@ def test_train_agent_respects_episode_limit(monkeypatch):
         def update(self):
             self.update_calls += 1
             fake_time.advance(30)
+
+        def save_model(self, path):
+            pass
 
     monkeypatch.setattr(train, "SnakeEnv", StubSnakeEnv)
     monkeypatch.setattr(train, "PPOAgent", StubAgent)
@@ -122,9 +128,63 @@ def test_train_agent_runs_indefinitely_until_patience(monkeypatch):
             self.update_calls += 1
             fake_time.advance(30)
 
+        def save_model(self, path):
+            pass
+
     monkeypatch.setattr(train, "SnakeEnv", StubSnakeEnv)
     monkeypatch.setattr(train, "PPOAgent", StubAgent)
 
     agent = train.train_agent(patience_seconds=400, time_provider=fake_time.time)
 
     assert agent.update_calls > 10
+
+
+def test_train_agent_saves_best_model(monkeypatch, tmp_path):
+    fake_time = FakeTime()
+
+    class StubSnakeEnv:
+        def __init__(self, grid_size=10):
+            self.state = np.zeros(100, dtype=np.float32)
+            self.score = 0
+            self.episode = 0
+
+        def reset(self):
+            self.episode += 1
+            self.score = self.episode
+            return self.state
+
+        def step(self, action):
+            return self.state, 0.0, True, {}
+
+    class StubAgent:
+        def __init__(self, *_, **__):
+            self.update_calls = 0
+            self.save_calls = []
+
+        def select_action(self, state, hidden_state=None):
+            return 0, hidden_state
+
+        def store_transition(self, reward, done):
+            pass
+
+        def update(self):
+            self.update_calls += 1
+
+        def save_model(self, path):
+            self.save_calls.append(path)
+
+    stub_agent = StubAgent()
+
+    monkeypatch.setattr(train, "SnakeEnv", StubSnakeEnv)
+    monkeypatch.setattr(train, "PPOAgent", lambda *args, **kwargs: stub_agent)
+
+    best_path = tmp_path / "models" / "best.pth"
+
+    train.train_agent(
+        episodes=3,
+        patience_seconds=500,
+        time_provider=fake_time.time,
+        best_model_path=str(best_path),
+    )
+
+    assert stub_agent.save_calls == [str(best_path)] * 3

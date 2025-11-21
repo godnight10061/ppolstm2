@@ -108,3 +108,13 @@ class PPOAgent:
     def store_transition(self, reward, done):
         self.memory.rewards.append(reward)
         self.memory.dones.append(done)
+
+    def save_model(self, path):
+        """Persist the current policy weights to disk."""
+        torch.save(self.policy.state_dict(), path)
+
+    def load_model(self, path, map_location=None):
+        """Load policy weights from disk for evaluation."""
+        state_dict = torch.load(path, map_location=map_location)
+        self.policy.load_state_dict(state_dict)
+        self.policy.eval()

@@ -22,6 +22,16 @@ Train the agent:
 python src/train.py
 ```
 
+Visualize the best trained agent:
+```bash
+python src/visualize.py
+```
+
+Options for visualization:
+```bash
+python src/visualize.py --model best_model.pth --delay 0.1 --continuous
+```
+
 Run tests:
 ```bash
 pytest tests/
@@ -33,9 +43,12 @@ pytest tests/
 src/
 ├── snake_env.py       # Snake game environment
 ├── ppo_lstm_agent.py  # PPO LSTM agent
-└── train.py           # Training script
+├── train.py           # Training script
+└── visualize.py       # Visualization script
 
 tests/
 ├── test_snake_env.py       # Environment tests
-└── test_ppo_lstm_agent.py  # Agent tests
+├── test_ppo_lstm_agent.py  # Agent tests
+├── test_train.py           # Training tests
+└── test_visualize.py       # Visualization tests
 ```
