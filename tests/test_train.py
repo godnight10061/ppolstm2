@@ -18,7 +18,7 @@ def test_train_agent_stops_when_patience_expires(monkeypatch):
 
     class StubSnakeEnv:
         def __init__(self, grid_size=10):
-            self.state = np.zeros(100, dtype=np.float32)
+            self.state = np.zeros(11, dtype=np.float32)
             self.score = 0
 
         def reset(self):
@@ -57,7 +57,7 @@ def test_train_agent_respects_episode_limit(monkeypatch):
 
     class StubSnakeEnv:
         def __init__(self, grid_size=10):
-            self.state = np.zeros(100, dtype=np.float32)
+            self.state = np.zeros(11, dtype=np.float32)
             self.score = 0
 
         def reset(self):
@@ -102,7 +102,7 @@ def test_train_agent_runs_indefinitely_until_patience(monkeypatch):
 
     class StubSnakeEnv:
         def __init__(self, grid_size=10):
-            self.state = np.zeros(100, dtype=np.float32)
+            self.state = np.zeros(11, dtype=np.float32)
             self.score = 0
 
         def reset(self):
@@ -144,7 +144,7 @@ def test_train_agent_saves_best_model(monkeypatch, tmp_path):
 
     class StubSnakeEnv:
         def __init__(self, grid_size=10):
-            self.state = np.zeros(100, dtype=np.float32)
+            self.state = np.zeros(11, dtype=np.float32)
             self.score = 0
             self.episode = 0
 

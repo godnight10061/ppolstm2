@@ -16,7 +16,7 @@ def train_agent(
     best_model_path="best_model.pth",
 ):
     env = SnakeEnv(grid_size=10)
-    agent = PPOAgent(state_dim=100, action_dim=4)
+    agent = PPOAgent(state_dim=11, action_dim=4)
 
     if time_provider is None:
         time_provider = time.time

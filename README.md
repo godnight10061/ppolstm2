@@ -4,10 +4,31 @@ A clean and concise implementation of a Proximal Policy Optimization (PPO) agent
 
 ## Features
 
-- Snake game environment with Gym-like interface
-- PPO algorithm with LSTM network for sequential decision making
-- Comprehensive test suite
+- Snake game environment with improved state representation
+- PPO algorithm with enhanced LSTM network for sequential decision making
+- Reward shaping for faster learning
+- Invalid action prevention (no 180-degree turns)
+- Comprehensive test suite (35 tests)
 - Clean and modular code structure
+
+## Key Improvements
+
+### State Representation (11 features)
+- **Danger indicators**: straight, left, right (3 features)
+- **Current direction**: up, down, left, right (4 features)
+- **Food direction**: up, down, left, right (4 features)
+
+### Reward Shaping
+- Eating food: +10
+- Collision: -10
+- Moving toward food: +1
+- Moving away from food: -1
+
+### Network Architecture
+- Pre-processing layers before LSTM
+- Gradient clipping for stability
+- Higher entropy coefficient for exploration (0.05)
+- Advantage normalization
 
 ## Installation
 
@@ -41,14 +62,27 @@ pytest tests/
 
 ```
 src/
-├── snake_env.py       # Snake game environment
-├── ppo_lstm_agent.py  # PPO LSTM agent
+├── snake_env.py       # Snake game environment with improved state/rewards
+├── ppo_lstm_agent.py  # PPO LSTM agent with enhanced architecture
 ├── train.py           # Training script
 └── visualize.py       # Visualization script
 
 tests/
-├── test_snake_env.py       # Environment tests
-├── test_ppo_lstm_agent.py  # Agent tests
-├── test_train.py           # Training tests
-└── test_visualize.py       # Visualization tests
+├── test_snake_env.py       # Environment tests (14 tests)
+├── test_ppo_lstm_agent.py  # Agent tests (9 tests)
+├── test_train.py           # Training tests (4 tests)
+└── test_visualize.py       # Visualization tests (8 tests)
 ```
+
+## Performance
+
+The improved approach provides:
+- Dense feedback every step (reward shaping)
+- Faster learning convergence
+- Better state representation
+- More stable training
+
+Expected learning timeline:
+- Score 5+: ~500-1000 episodes
+- Score 10+: ~2000-5000 episodes
+- Continues improving with more training

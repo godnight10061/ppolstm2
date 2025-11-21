@@ -40,7 +40,7 @@ class TestLoadAgent:
 
         result = visualize._load_agent(str(model_path), grid_size=10)
 
-        mock_agent_class.assert_called_once_with(state_dim=100, action_dim=4)
+        mock_agent_class.assert_called_once_with(state_dim=11, action_dim=4)
         mock_agent.load_model.assert_called_once_with(str(model_path))
         assert result == mock_agent
 
@@ -73,14 +73,14 @@ class TestVisualizeAgent:
                 self.done = False
                 self.score = 0
                 step_count[0] = 0
-                return np.zeros(100)
+                return np.zeros(11)
 
             def step(self, action):
                 step_count[0] += 1
                 if step_count[0] >= 3:
                     self.done = True
                     self.score = 5
-                return np.zeros(100), 0.0, self.done, {}
+                return np.zeros(11), 0.0, self.done, {}
 
         class MockAgent:
             def __init__(self, state_dim, action_dim):
@@ -119,12 +119,12 @@ class TestVisualizeAgent:
             def reset(self):
                 self.done = False
                 step_count[0] = 0
-                return np.zeros(100)
+                return np.zeros(11)
 
             def step(self, action):
                 step_count[0] += 1
                 self.score = step_count[0]
-                return np.zeros(100), 0.0, False, {}
+                return np.zeros(11), 0.0, False, {}
 
         class MockAgent:
             def __init__(self, state_dim, action_dim):
@@ -160,7 +160,7 @@ class TestVisualizeAgent:
                 self.done = False
 
             def reset(self):
-                return np.zeros(100)
+                return np.zeros(11)
 
             def step(self, action):
                 raise KeyboardInterrupt()
@@ -199,11 +199,11 @@ class TestVisualizeAgent:
                 self.done = False
 
             def reset(self):
-                return np.zeros(100)
+                return np.zeros(11)
 
             def step(self, action):
                 self.done = True
-                return np.zeros(100), 0.0, True, {}
+                return np.zeros(11), 0.0, True, {}
 
         class MockAgent:
             def __init__(self, state_dim, action_dim):
@@ -242,11 +242,11 @@ class TestVisualizeAgent:
                 episode_count[0] += 1
                 if episode_count[0] > 2:
                     raise KeyboardInterrupt()
-                return np.zeros(100)
+                return np.zeros(11)
 
             def step(self, action):
                 self.done = True
-                return np.zeros(100), 0.0, True, {}
+                return np.zeros(11), 0.0, True, {}
 
         class MockAgent:
             def __init__(self, state_dim, action_dim):
