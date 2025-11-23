@@ -1,3 +1,5 @@
+import warnings
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -46,8 +48,21 @@ class PPOAgent:
         eps_clip=0.2,
         k_epochs=4,
         entropy_coef=0.05,
+        device=None,
     ):
-        self.policy = PPOPolicyNetwork(state_dim, action_dim, hidden_dim)
+        if device is None:
+            resolved_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            resolved_device = torch.device(device)
+            if resolved_device.type == "cuda" and not torch.cuda.is_available():
+                warnings.warn(
+                    "CUDA requested but not available. Falling back to CPU.",
+                    RuntimeWarning,
+                )
+                resolved_device = torch.device("cpu")
+        self.device = resolved_device
+
+        self.policy = PPOPolicyNetwork(state_dim, action_dim, hidden_dim).to(self.device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
         self.memory = PPOMemory()
         self.gamma = gamma
@@ -56,7 +71,7 @@ class PPOAgent:
         self.entropy_coef = entropy_coef
 
     def select_action(self, state, hidden_state=None):
-        state_tensor = torch.from_numpy(state).float().unsqueeze(0).unsqueeze(0)
+        state_tensor = torch.from_numpy(state).float().unsqueeze(0).unsqueeze(0).to(self.device)
         logits, value, hidden_state = self.policy(state_tensor, hidden_state)
         probs = torch.softmax(logits.squeeze(0), dim=-1)
         dist = Categorical(probs)
@@ -79,11 +94,11 @@ class PPOAgent:
             discounted_return = reward + (self.gamma * discounted_return)
             returns.insert(0, discounted_return)
 
-        returns = torch.tensor(returns, dtype=torch.float32)
+        returns = torch.tensor(returns, dtype=torch.float32, device=self.device)
         log_probs = torch.stack(self.memory.log_probs)
         values = torch.cat(self.memory.values, dim=1).squeeze(0).squeeze(-1)
         states = torch.cat(self.memory.states, dim=1)
-        actions = torch.tensor(self.memory.actions)
+        actions = torch.tensor(self.memory.actions, device=self.device)
 
         advantages = returns - values
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
@@ -126,6 +141,8 @@ class PPOAgent:
 
     def load_model(self, path, map_location=None):
         """Load policy weights from disk for evaluation."""
+        if map_location is None:
+            map_location = self.device
         state_dict = torch.load(path, map_location=map_location)
         self.policy.load_state_dict(state_dict)
         self.policy.eval()

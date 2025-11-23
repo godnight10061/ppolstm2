@@ -44,6 +44,25 @@ class TestLoadAgent:
         mock_agent.load_model.assert_called_once_with(str(model_path))
         assert result == mock_agent
 
+    def test_load_agent_forces_cpu_device(self, monkeypatch, tmp_path):
+        model_path = tmp_path / "test_model.pth"
+        model_path.touch()
+
+        captured_devices = []
+
+        class DummyAgent:
+            def __init__(self, state_dim, action_dim, device=None):
+                captured_devices.append(device)
+
+            def load_model(self, path):
+                assert path == str(model_path)
+
+        monkeypatch.setattr(visualize, "PPOAgent", DummyAgent)
+
+        visualize._load_agent(str(model_path), grid_size=10)
+
+        assert captured_devices == ["cpu"]
+
     def test_load_agent_file_not_found(self, monkeypatch):
         """Test that loading a non-existent model raises FileNotFoundError."""
         mock_agent = MagicMock()

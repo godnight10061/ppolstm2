@@ -8,6 +8,7 @@ A clean and concise implementation of a Proximal Policy Optimization (PPO) agent
 - PPO algorithm with enhanced LSTM network for sequential decision making
 - Reward shaping for faster learning
 - Invalid action prevention (no 180-degree turns)
+- **GPU acceleration support** - automatically uses CUDA when available
 - Comprehensive test suite (35 tests)
 - Clean and modular code structure
 
